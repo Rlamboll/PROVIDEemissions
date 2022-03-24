@@ -5,7 +5,7 @@ import silicone.multiple_infillers as mi
 import silicone.database_crunchers.quantile_rolling_windows as qrw
 
 def make_paths(
-        net_zeros, overshoots, mod_2030s, methane_levels, outdir, version, check_min_dif=True,
+        cases, outdir, version, check_min_dif=True,
         make_scen_files=False
 ):
     sr15_em = pyam.IamDataFrame("../input/sr15_cleaned_harmed.csv").filter(
@@ -27,39 +27,39 @@ def make_paths(
     # limit
     if check_min_dif:
         min_dif = -30902
-    for mod_2030 in mod_2030s:
-        for net_zero in net_zeros:
-            for overshoot in overshoots:
-                scen = basis_scen.filter(variable="*CO2").timeseries()
-                scen[2030] = scen[2020] * mod_2030
-                for year in range(2030 + yeargap, min(net_zero + 1, 2301), yeargap):
-                    scen[year] = scen[2030] * (net_zero - year) / (net_zero - 2030)
-                for year in range(net_zero + yeargap, 2301, yeargap):
-                        scen[year] = max(
-                            [overshoot, scen[year - yeargap].values - max_grad])
-                if check_min_dif & ((scen[2040] - scen[2030] - min_dif).values[0] < 0):
-                    continue
-                scen = scen.reset_index()
-                scen[
-                    "scenario"] = f"2030fact{round(mod_2030, 3)}_nz{net_zero}_ov{overshoot}"
-                try:
-                    all_scens = all_scens.append(scen)
-                except NameError:
-                    all_scens = scen
+    for (mod_2030, net_zero, overshoot, methane) in cases:
+        scen = basis_scen.filter(variable="*CO2").timeseries()
+        scen[2030] = scen[2020] * mod_2030
+        for year in range(2030 + yeargap, min(net_zero + 1, 2301), yeargap):
+            scen[year] = scen[2030] * (net_zero - year) / (net_zero - 2030)
+        for year in range(net_zero + yeargap, 2301, yeargap):
+                scen[year] = max(
+                    [overshoot, scen[year - yeargap].values - max_grad])
+        if check_min_dif & ((scen[2040] - scen[2030] - min_dif).values[0] < 0):
+            continue
+        scen = scen.reset_index()
+        scen["scenario"] = f"2030fact{round(mod_2030, 3)}_nz{net_zero}_ov{overshoot}_meth{round(methane, 3)}"
+        scen["methane"] = methane
+        try:
+            all_scens = all_scens.append(scen)
+        except NameError:
+            all_scens = scen
     all_scens = pyam.IamDataFrame(all_scens)
 
     # Break down totals
+    sr15_em = sr15_em.data
+    sr15_em["methane"] = 0
+    sr15_em = pyam.IamDataFrame(sr15_em)
     co2_infiller = mi.SplitCollectionWithRemainderEmissions(sr15_em)
-    co2_breakdown = co2_infiller.infill_components(co2tot, [co2afolu], co2ei,
-                                                   all_scens.filter(year=centyears))
+    co2_breakdown = co2_infiller.infill_components(
+        co2tot, [co2afolu], co2ei, all_scens.filter(year=centyears)
+    )
     all_scens = all_scens.append(co2_breakdown)
     # Infill methane emissions
     scenarios = []
     methane_infiller = qrw.QuantileRollingWindows(sr15_em)
-    for methane_level in methane_levels:
-        methane_scen = all_scens.copy().data
-        methane_scen["scenario"] = methane_scen["scenario"] + "_meth{}".format(
-            round(methane_level, 3))
+    for methane_level in set(all_scens.filter(variable="*CO2").data["methane"]):
+        methane_scen = all_scens.filter(methane=methane_level)
         methane_vals = methane_infiller.derive_relationship(
             "Emissions|CH4", ["Emissions|CO2"], quantile=methane_level
         )(pyam.IamDataFrame(methane_scen).filter(year=centyears))
@@ -77,13 +77,20 @@ def make_paths(
         "Emissions|Sulfur",
         "Emissions|VOC",
     ]
+    all_scens = all_scens.data
+    del all_scens["methane"]
+    all_scens = pyam.IamDataFrame(all_scens)
+    sr15_em = sr15_em.data
+    del sr15_em["methane"]
+    sr15_em = pyam.IamDataFrame(sr15_em)
     other_infilled = mi.infill_all_required_variables(
         all_scens.filter(year=centyears),
         sr15_em,
         [co2tot],
         required_variables_list=required_variables_list
     )
-    # Infill the f-gases (these are not harmonized). We use additional smoothing in this because there are fewer scenarios
+    # Infill the f-gases (these are not harmonized). We use additional smoothing in
+    # this because there are fewer scenarios
     f_gases = [
         "Emissions|PFC|CF4",
         "Emissions|PFC|C2F6",
