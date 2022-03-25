@@ -8,6 +8,23 @@ def make_paths(
         cases, outdir, version, check_min_dif=True,
         make_scen_files=False
 ):
+    """
+    Code to generate a set of paths that have a given set of net zero times, methane quantiles
+    :param cases: List(tuple)
+        4-tuple of (relative CO2 emissions increase between 2020 and 2030, net zero year,
+        long-run emissions after reaching net zero, quantile of methane relative to
+        CO2 emissions.
+    :param outdir: string
+        Place to save files.
+    :param version: string
+        String denoting the version. Used in file names.
+    :param check_min_dif: bool
+        If true, do not return a scenario for cases where the emissions change after
+        2030 is too high.
+    :param make_scen_files: bool
+        If true, also make a .SCEN file for each scenario.
+    :return:
+    """
     sr15_em = pyam.IamDataFrame("../input/sr15_cleaned_harmed.csv").filter(
         region="World")
     complete_sr15 = pyam.IamDataFrame("../input/complete_sr15_emissions.csv").filter(
