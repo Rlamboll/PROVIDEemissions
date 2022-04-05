@@ -17,39 +17,30 @@ natural_ems = pd.read_csv(
 
 emissions_in = {}
 results_out = {}
-WORKERS = cpu_count() - 1
+WORKERS = cpu_count() - 2
 version = "v5"
-outdir = '../output/{}/fair_{}/'
-parallel_processing = True
+outdir = '../output/{}/{}/fair_{}/'
+parallel_processing = False
 end_year = 2300
 start_year = natural_ems.loc[0, "year"]
 inter_start_year = 2010   # First year we actually care about values from
 natural_ems = natural_ems.iloc[:end_year-start_year+1, 1:].values
 
-run_scenarios = "processed"
+run_scenarios = "selected"
 if run_scenarios == "processed":
     scen_file_dir = f"../output/{version}/"
     scens_to_run = [
         x for x in os.listdir(scen_file_dir)
         if x.endswith('.SCEN')
     ]
-    # scens_to_run = scens_to_run[:2]
-    scenarios = [x[:-5] for x in scens_to_run ]
-    scens_to_run = (
-        [os.path.join(scen_file_dir, s) for s in scens_to_run]
-    )
-    check_prehist = np.loadtxt(
-        '../RunFaIRAR6/data_output/fair_emissions_files/ssp245_constant-2020-ch4.csv',
-        delimiter=','
-    )
-    for i, scenario in enumerate(scenarios):
-        tmp = scen_open(scens_to_run[i])
-        if tmp[0, 0] != start_year:
-            if check_prehist[0, 0] == start_year:
-                needed_rows = int(tmp[0, 0] - start_year)
-                tmp = np.concatenate([check_prehist[:needed_rows, :], tmp])
-
-        emissions_in[scenario] = tmp
+    # It may be a good idea to calculate in segments
+    scens_to_run = scens_to_run[:10]
+elif run_scenarios == "selected":
+    scen_file_dir = f"../output/chosen_files/{version}/"
+    scens_to_run = [
+        x for x in os.listdir(scen_file_dir)
+        if x.endswith('.SCEN')
+    ]
 else:
     scenarios = ["ssp245_constant-2020-ch4", "ch4_30", "ch4_40", "ch4_50", "coal-phase-out"]
     for scenario in scenarios:
@@ -57,6 +48,21 @@ else:
             '../RunFaIRAR6/data_output/fair_emissions_files/{}.csv'.format(scenario),
             delimiter=','
         )
+
+if run_scenarios in ["processed", "selected"]:
+    scenarios = [x[:-5] for x in scens_to_run]
+    check_prehist = np.loadtxt(
+        '../RunFaIRAR6/data_output/fair_emissions_files/ssp245_constant-2020-ch4.csv',
+        delimiter=','
+    )
+    for i, scenario in enumerate(scenarios):
+        tmp = scen_open(scen_file_dir + scens_to_run[i])
+        if tmp[0, 0] != start_year:
+            if check_prehist[0, 0] == start_year:
+                needed_rows = int(tmp[0, 0] - start_year)
+                tmp = np.concatenate([check_prehist[:needed_rows, :], tmp])
+
+        emissions_in[scenario] = tmp
 
 def run_fair(args):
     thisC, thisF, thisT, _, thisOHU, _, thisAF = fair.forward.fair_scm(**args)
@@ -131,11 +137,11 @@ def main():
             'co2_concentrations', 'ch4_concentrations', 'temperatures',
             'ch4_effective_radiative_forcing', 'effective_radiative_forcing',
         ]:
-            mkdir_p(outdir.format(version, var))
+            mkdir_p(outdir.format(version, run_scenarios, var))
             df_out = pd.DataFrame(results_out[scenario][var][inter_start_year - start_year: end_year + 1 - start_year, :])
             df_out['year'] = np.arange(inter_start_year, end_year + 1)
             df_out.set_index('year', inplace=True)
-            df_out.to_csv(outdir.format(version, var) + '{}.csv'.format(scenario), float_format="%6.4f")
+            df_out.to_csv(outdir.format(version, run_scenarios, var) + '{}.csv'.format(scenario), float_format="%6.4f")
 
 if __name__ == "__main__":
     main()
