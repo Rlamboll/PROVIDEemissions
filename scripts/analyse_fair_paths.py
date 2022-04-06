@@ -1,9 +1,10 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 import os
 
 version = "v5"
-run_scenarios = "selected"
+run_scenarios = "chosen_files"
 fairdir = '../output/{}/{}/fair_{}/'.format(version, run_scenarios, "temperatures")
 summaryname = "summary.csv"
 scenariofiles = [
@@ -19,7 +20,7 @@ for scen in scenariofiles:
         quant_res = tmp.quantile(q, axis=1)
         quant_res = pd.DataFrame(quant_res).T
         quant_res["quantile"] = q
-        quant_res["scenario"] = scen[:-4]
+        quant_res["scenario"] = scen[5:-4]
         results.append(quant_res)
 
 results = pd.concat(results)
@@ -40,4 +41,11 @@ new_res = new_res.set_index(["scenario", "quantile"])
 results = results.append(new_res)
 results.to_csv(fairdir + summaryname)
 
+to_plot = results.loc[results.index.get_level_values("quantile")==0.5, :]
+labels = to_plot.index.get_level_values("scenario")
+plt.plot(results.columns, to_plot.T)
+plt.legend(labels, bbox_to_anchor=(1.05, 1))
+plt.xlabel("Year")
+plt.ylabel("Warming ($^o$C)")
+plt.savefig(fairdir + "plot0.5quant.png", bbox_inches="tight")
 

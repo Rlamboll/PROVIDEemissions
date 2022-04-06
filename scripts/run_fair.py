@@ -17,7 +17,7 @@ natural_ems = pd.read_csv(
 
 emissions_in = {}
 results_out = {}
-WORKERS = cpu_count() - 2
+WORKERS = cpu_count() - 1
 version = "v5"
 outdir = '../output/{}/{}/fair_{}/'
 parallel_processing = True
@@ -26,7 +26,7 @@ start_year = natural_ems.loc[0, "year"]
 inter_start_year = 2010   # First year we actually care about values from
 natural_ems = natural_ems.iloc[:end_year-start_year+1, 1:].values
 
-run_scenarios = "selected"
+run_scenarios = "chosen_files"
 if run_scenarios == "processed":
     scen_file_dir = f"../output/{version}/"
     scens_to_run = [
@@ -35,7 +35,7 @@ if run_scenarios == "processed":
     ]
     # It may be a good idea to calculate in segments
     scens_to_run = scens_to_run[:10]
-elif run_scenarios == "selected":
+elif run_scenarios == "chosen_files":
     scen_file_dir = f"../output/chosen_files/{version}/"
     scens_to_run = [
         x for x in os.listdir(scen_file_dir)
@@ -49,7 +49,7 @@ else:
             delimiter=','
         )
 
-if run_scenarios in ["processed", "selected"]:
+if run_scenarios in ["chosen_files", "selected"]:
     scenarios = [x[:-5] for x in scens_to_run]
     check_prehist = np.loadtxt(
         '../RunFaIRAR6/data_output/fair_emissions_files/ssp245_constant-2020-ch4.csv',
