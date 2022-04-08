@@ -15,6 +15,8 @@ scenariofiles = [
 results = []
 quantiles = [0.1, 0.33, 0.5, 0.66, 0.9]
 for scen in scenariofiles:
+    if scen in ["Abrupt_stop", "Current policies"]:
+        continue
     tmp = pd.read_csv(fairdir + scen, index_col="year")
     for q in quantiles:
         quant_res = tmp.quantile(q, axis=1)
