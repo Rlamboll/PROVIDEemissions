@@ -3,9 +3,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 
-version = "v5"
+version = "v6"
 run_scenarios = "chosen_files"
-fairdir = '../output/{}/{}/fair_{}/'.format(version, run_scenarios, "temperatures")
+fairdir = '../output/{}/{}/fair_{}/'.format(run_scenarios, version, "temperatures")
 summaryname = "summary.csv"
 scenariofiles = [
         x for x in os.listdir(fairdir)
@@ -29,8 +29,20 @@ results = pd.concat(results)
 scen1 = results.scenario.iloc[0]
 results = results.set_index(["scenario", "quantile"])
 
-# Construct a pathway that stops at 1.5 C.
-# Base this on the first scenario
+# Construct pathways that freeze in temp at earlier points.
+# Neg is frozen at peak, other scenarios frozen at 2100
+freeze_scen = ["CurPol", "ModAct", "Neg"]
+for scen in freeze_scen:
+    new_result = results.loc[scen, :]
+    freeze_year = min(new_result.idxmax(axis=1)[0.50], 2100)
+    new_result.loc[:, freeze_year:] = np.repeat(new_result.loc[
+                                                :, freeze_year:freeze_year
+    ].values, new_result.loc[:, freeze_year:].shape[1], axis=1)
+    new_result.index = [(scen + "_SAP", i) for i in new_result.index]
+    results = results.append(new_result)
+
+# Construct pathways that freeze at certain points.
+# Base 1.5 C pathway on the first scenario
 assert max(results.loc[(scen1, 0.5)]) > 1.5
 first_ind_15 = results.loc[(scen1, 0.5)] < 1.5
 first_ind_15_ends = np.cumprod(first_ind_15)
