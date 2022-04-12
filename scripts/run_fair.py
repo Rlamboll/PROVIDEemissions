@@ -18,7 +18,7 @@ natural_ems = pd.read_csv(
 emissions_in = {}
 results_out = {}
 WORKERS = cpu_count() - 1
-version = "v5"
+version = "v6"
 outdir = '../output/{}/{}/fair_{}/'
 parallel_processing = True
 end_year = 2300
@@ -41,7 +41,6 @@ elif run_scenarios == "chosen_files":
         x for x in os.listdir(scen_file_dir)
         if x.endswith('.SCEN')
     ]
-    scens_to_run = scens_to_run[:1]
 else:
     scenarios = ["ssp245_constant-2020-ch4", "ch4_30", "ch4_40", "ch4_50", "coal-phase-out"]
     for scenario in scenarios:
@@ -138,11 +137,11 @@ def main():
             'co2_concentrations', 'ch4_concentrations', 'temperatures',
             'ch4_effective_radiative_forcing', 'effective_radiative_forcing',
         ]:
-            mkdir_p(outdir.format(version, run_scenarios, var))
+            mkdir_p(outdir.format(run_scenarios, version, var))
             df_out = pd.DataFrame(results_out[scenario][var][inter_start_year - start_year: end_year + 1 - start_year, :])
             df_out['year'] = np.arange(inter_start_year, end_year + 1)
             df_out.set_index('year', inplace=True)
-            df_out.to_csv(outdir.format(version, run_scenarios, var) + '{}.csv'.format(scenario), float_format="%6.4f")
+            df_out.to_csv(outdir.format(run_scenarios, version, var) + '{}.csv'.format(scenario), float_format="%6.4f")
 
 if __name__ == "__main__":
     main()
