@@ -18,7 +18,7 @@ natural_ems = pd.read_csv(
 emissions_in = {}
 results_out = {}
 WORKERS = cpu_count() - 1
-version = "v6"
+version = "v7"
 outdir = '../output/{}/{}/fair_{}/'
 parallel_processing = True
 end_year = 2300
@@ -34,7 +34,6 @@ if run_scenarios == "processed":
         if x.endswith('.SCEN')
     ]
     # It may be a good idea to calculate in segments
-    scens_to_run = scens_to_run[:10]
 elif run_scenarios == "chosen_files":
     scen_file_dir = f"../output/chosen_files/{version}/"
     scens_to_run = [
