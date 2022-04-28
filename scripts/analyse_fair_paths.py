@@ -19,8 +19,11 @@ scenariofiles = [
         if x.endswith('.csv') and x != summaryname
 ]
 
-# These scenarios are simply a subset of other scenarios
-unused_scenarios = ["until-2100summary.csv", "post-2100summary.csv"]
+# These files are not really scenarios
+unused_scenarios = [
+    "until-2100summary.csv", "post-2100summary.csv", "post-2100_inc_redsummary.csv",
+    "until-2100_inc_redsummary.csv"
+]
 
 scens_for_2100 = [
     "GS", "Neg", "ModAct", "CurPol", "LD", "SP", "Ren",
@@ -28,7 +31,7 @@ scens_for_2100 = [
 scenes_for_both = ["ssp119", "ssp534-over", "Ref_1p5"]
 
 scens_to_restrict = [
-    ("CurPol nz 2120 decline -23500", 1.51),
+    ("CurPol nz 2120 decline -23800", 1.5),
     ("ModAct nz 2120 decline -23000", 1),
     ("Neg nz 2100 decline -17000", 0),
     ("ModAct nz 2120 decline -16500", 1.5),
@@ -53,6 +56,9 @@ results = pd.concat(results)
 scen1 = "LD"
 results = results.set_index(["scenario", "quantile"])
 
+# Do we want to include emissions trends which overlap entirely with other trends?
+include_redundant = True
+
 # Construct pathways that freeze in temp at earlier points.
 # Neg is frozen at peak, other scenarios frozen at 2100
 freeze_scen = ["CurPol", "ModAct", "Neg"]
@@ -65,7 +71,7 @@ for scen in freeze_scen:
     ].values, new_result.loc[:, freeze_year:].shape[1], axis=1)
     new_result.index = [(scen + "_SAP", i) for i in new_result.index]
     results = results.append(new_result)
-    freeze_dates[scen] = freeze_year
+    freeze_dates[scen + "_SAP"] = (scen, freeze_year)
 
 # Construct pathways that freeze at certain temperatures after 2100.
 # Base 1.5 C pathway on the chosen scenario in scen1
@@ -81,7 +87,8 @@ new_res = new_res.reset_index(drop=False)
 new_res["scenario"] = "Ref_1p5"
 new_res = new_res.set_index(["scenario", "quantile"])
 results = results.append(new_res)
-
+freeze_dates["Ref_1p5"] = (scen1, max(results.columns[[bool(x) for x in first_ind_15_ends.values]]))
+emissions = pyam.IamDataFrame(outdir + "all_emissions.csv").filter(variable="*F-Gases", keep=False)
 post_2100 = [c for c in results.columns if c > 2100]
 for (scen, temp) in scens_to_restrict:
     assert results.loc[(scen, 0.5), post_2100].values.min() < temp, \
@@ -92,7 +99,11 @@ for (scen, temp) in scens_to_restrict:
     for col in [c for c in results.columns if c not in new_res]:
         new_res[col] = new_res.iloc[:, -1]
     new_res = new_res.reset_index(drop=False)
-    new_res["scenario"] = scen.split(" ")[0] + f"_OS_{temp}C"
+    newname = scen.split(" ")[0] + f"_OS_{temp}C"
+    new_res["scenario"] = newname
+    emissions = emissions.rename({"scenario": {scen: newname}})
+    freeze_dates[new_res["scenario"][0]] = (
+    scen, max(results.columns[[bool(x) for x in first_ind_15_ends.values]]))
     new_res = new_res.set_index(["scenario", "quantile"])
     results = results.append(new_res)
 
@@ -101,8 +112,6 @@ results = results.loc[
 ]
 results.to_csv(fairdir + summaryname)
 
-emissions = pyam.IamDataFrame(outdir + "all_emissions.csv")
-emissions = emissions.filter(scenario=scen_to_remove_later, keep=False)
 co2 = "Emissions|CO2"
 co2s = [co2 + "|AFOLU", co2 + "|Energy and Industrial Processes"]
 co2tot = silicone.utils._construct_consistent_values(
@@ -139,18 +148,41 @@ cdict = {scenset[i]: colors[i] for i in range(len(scenset))}
 
 results = results.sort_values(2100, ascending=False)
 
-# Process files for both before and adter 2100
-for include in [True, False]:
-    if include:
+# Process files for both before and after 2100
+for pre_2100 in [True, False]:
+    if pre_2100:
         years = np.arange(2010, 2300)
         emissions_years = [2015] + list(np.arange(2020, 2301, 10))
         to_plot = results.loc[
           (results["quantile"]==0.5) & [i not in scens_for_2100 for i in results["scenario"]],
           :
         ]
-        savestring = "post-2100"
         co2date = co2tot.loc[[i not in scens_for_2100 for i in co2tot["scenario"]], :]
-        ghgtotdate = ghgtot.loc[[i not in scens_for_2100 for i in ghgtot["scenario"]], :]
+        ghgtotdate = ghgtot.loc[[i not in scens_for_2100 for i in ghgtot["scenario"]],
+                     :]
+        if include_redundant:
+            savestring = "post-2100_inc_red"
+            ghgs_freeze = []
+            co2_freeze = []
+            for scenario, (orig_scen, fdate) in freeze_dates.items():
+                truncated_2100_co2 = co2tot.loc[co2tot["scenario"] == orig_scen, :]
+                truncated_2100_co2["scenario"] = scenario
+                if scenario == "Ref_1p5":
+                    truncated_2100_co2["atomic_scen"] = "Ref"
+                co2years = truncated_2100_co2.columns[5:-2]
+                truncated_2100_co2.loc[:, [y for y in years if y > fdate]] = np.nan
+                co2_freeze.append(truncated_2100_co2)
+                truncated_2100_ghg = ghgtot.loc[ghgtot["scenario"] == orig_scen, :]
+                ghgyears = truncated_2100_ghg.columns[5:-2]
+                truncated_2100_ghg.loc[:, [y for y in ghgyears if y > fdate]] = np.nan
+                truncated_2100_ghg["scenario"] = scenario
+                if scenario == "Ref_1p5":
+                    truncated_2100_ghg["atomic_scen"] = "Ref"
+                ghgs_freeze.append(truncated_2100_ghg)
+            co2date = pd.concat([co2date] + co2_freeze)
+            ghgtotdate = pd.concat([ghgtotdate] + ghgs_freeze)
+        else:
+            savestring = "post-2100"
     else:
         years = np.arange(2010, 2100)
         emissions_years = [2015] + list(np.arange(2020, 2101, 10))
@@ -166,7 +198,33 @@ for include in [True, False]:
         ghgtotdate = ghgtot.loc[
             [i in (scens_for_2100 + scenes_for_both) for i in ghgtot["scenario"]], :
         ]
-        savestring = "until-2100"
+        if include_redundant:
+            savestring = "until-2100_inc_red"
+            ghgs_freeze = []
+            co2_freeze = []
+            for scenario, (orig_scen, fdate) in freeze_dates.items():
+                if scenario not in (scens_for_2100 + scenes_for_both):
+                    continue
+                truncated_2100_co2 = co2tot.loc[co2tot["scenario"] == orig_scen, :]
+                truncated_2100_co2["scenario"] = scenario
+                if scenario == "Ref_1p5":
+                    truncated_2100_co2["atomic_scen"] = "Ref"
+                co2years = truncated_2100_co2.columns[5:-2]
+                truncated_2100_co2.loc[:, [y for y in co2years if y > fdate]] = np.nan
+                co2_freeze.append(truncated_2100_co2)
+                truncated_2100_ghg = ghgtot.loc[ghgtot["scenario"] == orig_scen, :]
+                ghgyears = truncated_2100_ghg.columns[5:-2]
+                truncated_2100_ghg.loc[:, [y for y in ghgyears if y > fdate]] = np.nan
+                truncated_2100_ghg["scenario"] = scenario
+                if scenario == "Ref_1p5":
+                    truncated_2100_ghg["atomic_scen"] = "Ref"
+                ghgs_freeze.append(truncated_2100_ghg)
+            co2date = pd.concat([co2date] + co2_freeze)
+            ghgtotdate = pd.concat([ghgtotdate] + ghgs_freeze)
+        else:
+            savestring = "until-2100"
+    co2date = co2date.sort_values(2100, ascending=False)
+    ghgtotdate = ghgtotdate.sort_values(2100, ascending=False)
     labels = to_plot["scenario"]
     plt.clf()
     for (j, scen) in to_plot.iterrows():
@@ -196,7 +254,7 @@ for include in [True, False]:
             emissions_years, scen.loc[emissions_years], c=cdict[scen["atomic_scen"]],
             linestyle=scen["linestyle"]
         )
-    plt.legend(co2date["scenario"], bbox_to_anchor=(1.02, 1))
+    plt.legend(ghgtotdate["scenario"], bbox_to_anchor=(1.02, 1))
     plt.xlabel("Year")
     plt.ylabel("Kyoto GHG emissions (Gt CO$_2$-eq/yr)")
     plt.savefig(plotdir + savestring + "plotghgemissions.png", bbox_inches="tight")
