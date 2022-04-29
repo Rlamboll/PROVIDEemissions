@@ -18,6 +18,8 @@ scenariofiles = [
         x for x in os.listdir(fairdir)
         if x.endswith('.csv') and x != summaryname
 ]
+# Do we plot everything in one place?
+single_plot = True
 
 # These files are not really scenarios
 unused_scenarios = [
@@ -168,7 +170,7 @@ for pre_2100 in [True, False]:
                 truncated_2100_co2 = co2tot.loc[co2tot["scenario"] == orig_scen, :]
                 truncated_2100_co2["scenario"] = scenario
                 if scenario == "Ref_1p5":
-                    truncated_2100_co2["atomic_scen"] = "Ref"
+                    truncated_2100_co2.loc["atomic_scen"] = "Ref"
                 co2years = truncated_2100_co2.columns[5:-2]
                 truncated_2100_co2.loc[:, [y for y in years if y > fdate]] = np.nan
                 co2_freeze.append(truncated_2100_co2)
@@ -177,7 +179,7 @@ for pre_2100 in [True, False]:
                 truncated_2100_ghg.loc[:, [y for y in ghgyears if y > fdate]] = np.nan
                 truncated_2100_ghg["scenario"] = scenario
                 if scenario == "Ref_1p5":
-                    truncated_2100_ghg["atomic_scen"] = "Ref"
+                    truncated_2100_ghg.loc["atomic_scen"] = "Ref"
                 ghgs_freeze.append(truncated_2100_ghg)
             co2date = pd.concat([co2date] + co2_freeze)
             ghgtotdate = pd.concat([ghgtotdate] + ghgs_freeze)
@@ -227,37 +229,52 @@ for pre_2100 in [True, False]:
     ghgtotdate = ghgtotdate.sort_values(2100, ascending=False)
     labels = to_plot["scenario"]
     plt.clf()
+    if single_plot:
+        plt.figure(figsize=(20, 8))
+        plt.subplot(1, 3, 1)
     for (j, scen) in to_plot.iterrows():
         plt.plot(
             years, scen.loc[years], c=cdict[scen["atomic_scen"]],
             linestyle=scen["linestyle"]
         )
-    plt.legend(to_plot["scenario"], bbox_to_anchor=(1.02, 1))
+
     plt.xlabel("Year")
     plt.ylabel("Temperature ($^o$C)")
-    plt.savefig(plotdir + savestring + "plot0.5quant.png", bbox_inches="tight")
     to_plot.to_csv(fairdir + savestring + summaryname)
+    if not single_plot:
+        plt.legend(to_plot["scenario"], bbox_to_anchor=(1.02, 1))
+        plt.savefig(plotdir + savestring + "plot0.5quant.png", bbox_inches="tight")
+        plt.clf()
+    else:
+        plt.subplot(1, 3, 2)
     # Then plot the emissions totals
-    plt.clf()
     for (j, scen) in co2date.iterrows():
         plt.plot(
             emissions_years, scen.loc[emissions_years], c=cdict[scen["atomic_scen"]],
             linestyle=scen["linestyle"]
         )
-    plt.legend(co2date["scenario"], bbox_to_anchor=(1.02, 1))
     plt.xlabel("Year")
     plt.ylabel("CO$_2$ emissions (Gt CO$_2$/yr)")
-    plt.savefig(plotdir + savestring + "plotco2emissions.png", bbox_inches="tight")
-    plt.clf()
+    plt.axhline(0, linewidth=0.8, c="black")
+    if not single_plot:
+        plt.legend(co2date["scenario"], bbox_to_anchor=(1.02, 1))
+        plt.savefig(plotdir + savestring + "plotco2emissions.png", bbox_inches="tight")
+        plt.clf()
+    else:
+        plt.subplot(1, 3, 3)
     for (j, scen) in ghgtotdate.iterrows():
         plt.plot(
             emissions_years, scen.loc[emissions_years], c=cdict[scen["atomic_scen"]],
             linestyle=scen["linestyle"]
         )
-    plt.legend(ghgtotdate["scenario"], bbox_to_anchor=(1.02, 1))
     plt.xlabel("Year")
     plt.ylabel("Kyoto GHG emissions (Gt CO$_2$-eq/yr)")
-    plt.savefig(plotdir + savestring + "plotghgemissions.png", bbox_inches="tight")
+    plt.axhline(0, linewidth=0.8, c="black")
+    if single_plot:
+        plt.legend(ghgtotdate["scenario"], bbox_to_anchor=(1.02, 1))
+        plt.savefig(plotdir + savestring + "plotghgemissions.png", bbox_inches="tight")
+    else:
+        plt.savefig(plotdir + savestring + "combinedPanelPlot.png", bbox_inches="tight")
 
 
 

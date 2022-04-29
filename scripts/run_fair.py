@@ -40,7 +40,7 @@ elif run_scenarios == "chosen_files":
         x for x in os.listdir(scen_file_dir)
         if x.endswith('.SCEN')
     ]
-    #scens_to_run = scens_to_run[:2]
+    scens_to_run = [s for s in scens_to_run if s[5:7]=="LD"]
 else:
     scenarios = ["ssp245_constant-2020-ch4", "ch4_30", "ch4_40", "ch4_50", "coal-phase-out"]
     for scenario in scenarios:
