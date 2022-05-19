@@ -170,7 +170,7 @@ for pre_2100 in [True, False]:
                 truncated_2100_co2 = co2tot.loc[co2tot["scenario"] == orig_scen, :]
                 truncated_2100_co2["scenario"] = scenario
                 if scenario == "Ref_1p5":
-                    truncated_2100_co2.loc["atomic_scen"] = "Ref"
+                    truncated_2100_co2.loc[:, "atomic_scen"] = "Ref"
                 co2years = truncated_2100_co2.columns[5:-2]
                 truncated_2100_co2.loc[:, [y for y in years if y > fdate]] = np.nan
                 co2_freeze.append(truncated_2100_co2)
@@ -179,7 +179,7 @@ for pre_2100 in [True, False]:
                 truncated_2100_ghg.loc[:, [y for y in ghgyears if y > fdate]] = np.nan
                 truncated_2100_ghg["scenario"] = scenario
                 if scenario == "Ref_1p5":
-                    truncated_2100_ghg.loc["atomic_scen"] = "Ref"
+                    truncated_2100_ghg.loc[:, "atomic_scen"] = "Ref"
                 ghgs_freeze.append(truncated_2100_ghg)
             co2date = pd.concat([co2date] + co2_freeze)
             ghgtotdate = pd.concat([ghgtotdate] + ghgs_freeze)
@@ -210,7 +210,7 @@ for pre_2100 in [True, False]:
                 truncated_2100_co2 = co2tot.loc[co2tot["scenario"] == orig_scen, :]
                 truncated_2100_co2["scenario"] = scenario
                 if scenario == "Ref_1p5":
-                    truncated_2100_co2["atomic_scen"] = "Ref"
+                    truncated_2100_co2.loc[:, "atomic_scen"] = "Ref"
                 co2years = truncated_2100_co2.columns[5:-2]
                 truncated_2100_co2.loc[:, [y for y in co2years if y > fdate]] = np.nan
                 co2_freeze.append(truncated_2100_co2)
@@ -219,7 +219,7 @@ for pre_2100 in [True, False]:
                 truncated_2100_ghg.loc[:, [y for y in ghgyears if y > fdate]] = np.nan
                 truncated_2100_ghg["scenario"] = scenario
                 if scenario == "Ref_1p5":
-                    truncated_2100_ghg["atomic_scen"] = "Ref"
+                    truncated_2100_ghg.loc[:, "atomic_scen"] = "Ref"
                 ghgs_freeze.append(truncated_2100_ghg)
             co2date = pd.concat([co2date] + co2_freeze)
             ghgtotdate = pd.concat([ghgtotdate] + ghgs_freeze)
@@ -254,7 +254,7 @@ for pre_2100 in [True, False]:
             linestyle=scen["linestyle"]
         )
     plt.xlabel("Year")
-    plt.ylabel("CO$_2$ emissions (Gt CO$_2$/yr)")
+    plt.ylabel("CO$_2$ emissions (Mt CO$_2$/yr)")
     plt.axhline(0, linewidth=0.8, c="black")
     if not single_plot:
         plt.legend(co2date["scenario"], bbox_to_anchor=(1.02, 1))
@@ -268,7 +268,7 @@ for pre_2100 in [True, False]:
             linestyle=scen["linestyle"]
         )
     plt.xlabel("Year")
-    plt.ylabel("Kyoto GHG emissions (Gt CO$_2$-eq/yr)")
+    plt.ylabel("Kyoto GHG emissions (Mt CO$_2$-eq/yr)")
     plt.axhline(0, linewidth=0.8, c="black")
     if single_plot:
         plt.legend(ghgtotdate["scenario"], bbox_to_anchor=(1.02, 1))

@@ -49,7 +49,7 @@ else:
             delimiter=','
         )
 
-if run_scenarios in ["chosen_files", "selected"]:
+if run_scenarios in ["chosen_files", "processed"]:
     scenarios = [x[:-5] for x in scens_to_run]
     check_prehist = np.loadtxt(
         '../RunFaIRAR6/data_output/fair_emissions_files/ssp245_constant-2020-ch4.csv',
