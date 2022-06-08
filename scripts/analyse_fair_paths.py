@@ -153,7 +153,7 @@ results = results.sort_values(2100, ascending=False)
 # Process files for both before and after 2100
 for pre_2100 in [True, False]:
     if pre_2100:
-        years = np.arange(2010, 2300)
+        years = np.arange(1850, 2300)
         emissions_years = [2015] + list(np.arange(2020, 2301, 10))
         to_plot = results.loc[
           (results["quantile"]==0.5) & [i not in scens_for_2100 for i in results["scenario"]],
@@ -186,7 +186,7 @@ for pre_2100 in [True, False]:
         else:
             savestring = "post-2100"
     else:
-        years = np.arange(2010, 2100)
+        years = np.arange(1850, 2100)
         emissions_years = [2015] + list(np.arange(2020, 2101, 10))
         to_plot = results.loc[
           (results["quantile"] == 0.5) & (
