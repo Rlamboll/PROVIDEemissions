@@ -14,9 +14,10 @@ plotdir = outdir + "plots/"
 if not os.path.exists(plotdir):
     os.makedirs(plotdir)
 summaryname = "summary.csv"
+timesummaryname = "time_averaged_values.csv"
 scenariofiles = [
         x for x in os.listdir(fairdir)
-        if x.endswith('.csv') and x != summaryname
+        if x.endswith('.csv') and x not in [summaryname, timesummaryname]
 ]
 # Do we plot everything in one place?
 single_plot = True
@@ -80,6 +81,10 @@ for scen in freeze_scen:
 assert max(results.loc[(scen1, 0.5)]) > 1.5
 first_ind_15 = results.loc[(scen1, 0.5)] < 1.5
 first_ind_15_ends = np.cumprod(first_ind_15)
+scen1p5 = pd.read_csv(fairdir +"scen_" + scen1 + ".csv", index_col="year")
+scen1p5.iloc[[not bool(x) for x in first_ind_15_ends.values], :] = scen1p5.iloc[sum(first_ind_15_ends), :]
+scen1p5.to_csv(fairdir +"scen_" + "Ref_1p5" + ".csv")
+
 new_res = results.loc[scen1, [bool(x) for x in first_ind_15_ends.values]]
 new_cols = {}
 for col in [c for c in results.columns if c not in new_res]:
@@ -276,5 +281,16 @@ for pre_2100 in [True, False]:
     else:
         plt.savefig(plotdir + savestring + "combinedPanelPlot.png", bbox_inches="tight")
 
+# Generate table of summary results
 
+time_summary_table = results.loc[results["quantile"] == 0.5, ["scenario"]].reset_index(drop=True)
+for uplim, lowlim in [(2021, 2041), (2041, 2060), (2081, 2101)]:
+    times = range(uplim, lowlim)
+    time_summary_table[f"Best est {uplim}-{lowlim}"] = results.loc[results["quantile"] == 0.5, times].mean(axis=1).reset_index(drop=True)
+    time_summary_table[f"Very likely from {uplim}-{lowlim}"] = results.loc[
+        np.isclose(results["quantile"], 0.1), times].mean(axis=1).reset_index(drop=True)
+    time_summary_table[f"Very likely to {uplim}-{lowlim}"] = results.loc[
+        np.isclose(results["quantile"], 0.9), times].mean(axis=1).reset_index(drop=True)
+
+time_summary_table.to_csv(outdir + timesummaryname)
 
