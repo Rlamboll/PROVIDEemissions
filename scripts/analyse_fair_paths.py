@@ -9,11 +9,14 @@ import silicone.utils
 version = "v8"
 run_scenarios = "chosen_files"
 outdir = f"../output/{run_scenarios}/{version}/"
+summarydir = '../output/{}/{}/summaries/'.format(run_scenarios, version, "temperatures")
 fairdir = '../output/{}/{}/fair_{}/'.format(run_scenarios, version, "temperatures")
 plotdir = outdir + "plots/"
 if not os.path.exists(plotdir):
     os.makedirs(plotdir)
-summaryname = "summary.csv"
+if not os.path.exists(summarydir):
+    os.makedirs(summarydir)
+summaryname = "tier1_temperature_summary.csv"
 timesummaryname = "time_averaged_values.csv"
 scenariofiles = [
         x for x in os.listdir(fairdir)
@@ -23,10 +26,7 @@ scenariofiles = [
 single_plot = True
 
 # These files are not really scenarios
-unused_scenarios = [
-    "until-2100summary.csv", "post-2100summary.csv", "post-2100_inc_redsummary.csv",
-    "until-2100_inc_redsummary.csv"
-]
+unused_scenarios = ["scen_Ref_1p5.csv"]
 
 scens_for_2100 = [
     "GS", "Neg", "ModAct", "CurPol", "LD", "SP", "Ren",
@@ -60,7 +60,7 @@ scen1 = "LD"
 results = results.set_index(["scenario", "quantile"])
 
 # Do we want to include emissions trends which overlap entirely with other trends?
-include_redundant = True
+include_redundant = False
 
 # Construct pathways that freeze in temp at earlier points.
 # Neg is frozen at peak, other scenarios frozen at 2100
@@ -102,7 +102,7 @@ for (scen, temp) in scens_to_restrict:
         f"Scenario {scen} never goes below {temp}"
     first_ind_15 = (results.loc[(scen, 0.5), :] > temp) | (results.columns < 2100)
     first_ind_15_ends = np.cumprod(first_ind_15)
-    new_res = results.loc[scen, [bool(x) for x in first_ind_15_ends.values]]
+    new_res = results.loc[scen, [bool(x) for x in first_ind_15_ends]]
     for col in [c for c in results.columns if c not in new_res]:
         new_res[col] = new_res.iloc[:, -1]
     new_res = new_res.reset_index(drop=False)
@@ -110,14 +110,14 @@ for (scen, temp) in scens_to_restrict:
     new_res["scenario"] = newname
     emissions = emissions.rename({"scenario": {scen: newname}})
     freeze_dates[new_res["scenario"][0]] = (
-    scen, max(results.columns[[bool(x) for x in first_ind_15_ends.values]]))
+    scen, max(results.columns[[bool(x) for x in first_ind_15_ends]]))
     new_res = new_res.set_index(["scenario", "quantile"])
     results = results.append(new_res)
 
 results = results.loc[
     [s not in scen_to_remove_later for s in results.index.get_level_values("scenario")]
 ]
-results.to_csv(fairdir + summaryname)
+results.to_csv(summarydir + summaryname)
 
 co2 = "Emissions|CO2"
 co2s = [co2 + "|AFOLU", co2 + "|Energy and Industrial Processes"]
@@ -168,7 +168,7 @@ for pre_2100 in [True, False]:
         ghgtotdate = ghgtot.loc[[i not in scens_for_2100 for i in ghgtot["scenario"]],
                      :]
         if include_redundant:
-            savestring = "post-2100_inc_red"
+            savestring = "post-2100_inc_redundant"
             ghgs_freeze = []
             co2_freeze = []
             for scenario, (orig_scen, fdate) in freeze_dates.items():
@@ -182,7 +182,7 @@ for pre_2100 in [True, False]:
                 truncated_2100_ghg = ghgtot.loc[ghgtot["scenario"] == orig_scen, :]
                 ghgyears = truncated_2100_ghg.columns[5:-2]
                 truncated_2100_ghg.loc[:, [y for y in ghgyears if y > fdate]] = np.nan
-                truncated_2100_ghg["scenario"] = scenario
+                truncated_2100_ghg.loc[:, "scenario"] = scenario
                 if scenario == "Ref_1p5":
                     truncated_2100_ghg.loc[:, "atomic_scen"] = "Ref"
                 ghgs_freeze.append(truncated_2100_ghg)
@@ -191,7 +191,7 @@ for pre_2100 in [True, False]:
         else:
             savestring = "post-2100"
     else:
-        years = np.arange(1850, 2100)
+        years = np.arange(1850, 2101)
         emissions_years = [2015] + list(np.arange(2020, 2101, 10))
         to_plot = results.loc[
           (results["quantile"] == 0.5) & (
@@ -206,7 +206,7 @@ for pre_2100 in [True, False]:
             [i in (scens_for_2100 + scenes_for_both) for i in ghgtot["scenario"]], :
         ]
         if include_redundant:
-            savestring = "until-2100_inc_red"
+            savestring = "until-2100_inc_redundant"
             ghgs_freeze = []
             co2_freeze = []
             for scenario, (orig_scen, fdate) in freeze_dates.items():
@@ -222,7 +222,7 @@ for pre_2100 in [True, False]:
                 truncated_2100_ghg = ghgtot.loc[ghgtot["scenario"] == orig_scen, :]
                 ghgyears = truncated_2100_ghg.columns[5:-2]
                 truncated_2100_ghg.loc[:, [y for y in ghgyears if y > fdate]] = np.nan
-                truncated_2100_ghg["scenario"] = scenario
+                truncated_2100_ghg.loc[:, "scenario"] = scenario
                 if scenario == "Ref_1p5":
                     truncated_2100_ghg.loc[:, "atomic_scen"] = "Ref"
                 ghgs_freeze.append(truncated_2100_ghg)
@@ -245,7 +245,6 @@ for pre_2100 in [True, False]:
 
     plt.xlabel("Year")
     plt.ylabel("Temperature ($^o$C)")
-    to_plot.to_csv(fairdir + savestring + summaryname)
     if not single_plot:
         plt.legend(to_plot["scenario"], bbox_to_anchor=(1.02, 1))
         plt.savefig(plotdir + savestring + "plot0.5quant.png", bbox_inches="tight")
@@ -280,9 +279,11 @@ for pre_2100 in [True, False]:
         plt.savefig(plotdir + savestring + "plotghgemissions.png", bbox_inches="tight")
     else:
         plt.savefig(plotdir + savestring + "combinedPanelPlot.png", bbox_inches="tight")
+    del to_plot["linestyle"]
+    to_plot.to_csv(summarydir + savestring + summaryname, index=False)
 
-# Generate table of summary results
 
+# Generate table of average of summary results over decades
 time_summary_table = results.loc[results["quantile"] == 0.5, ["scenario"]].reset_index(drop=True)
 for uplim, lowlim in [(2021, 2041), (2041, 2060), (2081, 2101)]:
     times = range(uplim, lowlim)
@@ -292,5 +293,5 @@ for uplim, lowlim in [(2021, 2041), (2041, 2060), (2081, 2101)]:
     time_summary_table[f"Very likely to {uplim}-{lowlim}"] = results.loc[
         np.isclose(results["quantile"], 0.9), times].mean(axis=1).reset_index(drop=True)
 
-time_summary_table.to_csv(outdir + timesummaryname)
+time_summary_table.to_csv(summarydir + timesummaryname)
 
