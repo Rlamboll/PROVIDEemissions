@@ -6,7 +6,7 @@ import pyam
 import re
 import silicone.utils
 
-version = "v8"
+version = "v9"
 run_scenarios = "chosen_files"
 outdir = f"../output/{run_scenarios}/{version}/"
 summarydir = '../output/{}/{}/summaries/'.format(run_scenarios, version, "temperatures")
@@ -60,7 +60,7 @@ scen1 = "LD"
 results = results.set_index(["scenario", "quantile"])
 
 # Do we want to include emissions trends which overlap entirely with other trends?
-include_redundant = False
+include_redundant = True
 
 # Construct pathways that freeze in temp at earlier points.
 # Neg is frozen at peak, other scenarios frozen at 2100
